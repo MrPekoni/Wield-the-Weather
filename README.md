@@ -1,5 +1,7 @@
 # Localized Weather
 
+THE BELOW IS THE DESCRIPTION FOR THE ORIGINAL MOD, MOST OF IT DOES NOT APPLY
+
 A Fabric mod that replaces Minecraft's global weather system with **per-zone localized weather**. Rain, snow, and thunderstorms happen independently across the world, with smooth transitions at zone boundaries and Minecraft-style storm clouds.
 
 ## Features
