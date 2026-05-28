@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.16-SNAPSHOT'
+    id 'fabric-loom' version '1.7-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -15,9 +15,26 @@ repositories {
     maven { url "https://api.modrinth.com/maven" }
 }
 
+
+// FORCE SYSTEM-WIDE RESOLUTION BLOCK
+// This forces any worker process spawned by Gradle/Loom to pull the WebP library
+configurations.configureEach {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.group == 'com.twelvemonkeys.imageio') {
+            details.useVersion '3.12.0'
+        }
+    }
+}
+
 loom {
     splitEnvironmentSourceSets()
-
+    runs {
+        client {
+            vmArg "-Dsun.io.useCanonCaches=false"
+            // Defensive bypass: Stops the headless AWT system from executing broken local host SPI scans
+            vmArg "-Djava.awt.headless=true"
+        }
+    }
     mods {
         "localweather" {
             sourceSet sourceSets.main
@@ -27,17 +44,17 @@ loom {
 }
 
 dependencies {
-    // To change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // YACL v3 — required by Better Clouds at runtime
-    modRuntimeOnly "dev.isxander:yet-another-config-lib:3.8.1+1.21.11-fabric"
+    modRuntimeOnly "dev.isxander:yet-another-config-lib:3.6.4+1.20.1-fabric"
+    modRuntimeOnly "maven.modrinth:modmenu:7.2.1"
 
-    // Mod Menu
-    modRuntimeOnly "maven.modrinth:modmenu:17.0.0"
+    // Fallback direct attachments
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
+    runtimeOnly 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
 }
 
 processResources {
@@ -49,17 +66,17 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    it.options.release = 17
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
+        rename { "${it}_${project.archivesName}" }
     }
 }

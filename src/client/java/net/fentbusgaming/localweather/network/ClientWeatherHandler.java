@@ -78,35 +78,48 @@ public final class ClientWeatherHandler {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Registration
+// -------------------------------------------------------------------------
+    // Registration (1.20.1 Backport)
     // -------------------------------------------------------------------------
 
     public static void register() {
+        // Register receiver for Weather Updates
         ClientPlayNetworking.registerGlobalReceiver(
-                WeatherPackets.WeatherUpdatePayload.ID,
-                (payload, context) -> {
+                WeatherPackets.WEATHER_UPDATE_ID,
+                (client, handler, buf, responseSender) -> {
+                    // Read variables sequentially out of the buffer stream
+                    int ordinal = buf.readVarInt();
+                    float progress = buf.readFloat();
+                    int zx = buf.readVarInt();
+                    int zz = buf.readVarInt();
+
                     WeatherZone.WeatherType[] values = WeatherZone.WeatherType.values();
-                    int ordinal = payload.weatherOrdinal();
                     if (ordinal < 0 || ordinal >= values.length) {
                         LocalWeatherMod.LOGGER.warn("[LocalWeather] Invalid weather ordinal: {}", ordinal);
                         return;
                     }
                     WeatherZone.WeatherType weather = values[ordinal];
-                    float progress = payload.transitionProgress();
-                    int zx = payload.zoneX();
-                    int zz = payload.zoneZ();
 
-                    long key = pack(zx, zz);
-                    ZONE_STATES.put(key, new ZoneState(weather, progress, zx, zz));
+                    // Switch back to the client main thread safely before writing data changes
+                    client.execute(() -> {
+                        long key = pack(zx, zz);
+                        ZONE_STATES.put(key, new ZoneState(weather, progress, zx, zz));
+                    });
                 }
         );
 
+        // Register receiver for Wind Updates
         ClientPlayNetworking.registerGlobalReceiver(
-                WeatherPackets.WindUpdatePayload.ID,
-                (payload, context) -> {
-                    windDirX = payload.windDirX();
-                    windDirZ = payload.windDirZ();
+                WeatherPackets.WIND_UPDATE_ID,
+                (client, handler, buf, responseSender) -> {
+                    // Extract primitive drift limits
+                    float xDir = buf.readFloat();
+                    float zDir = buf.readFloat();
+
+                    client.execute(() -> {
+                        windDirX = xDir;
+                        windDirZ = zDir;
+                    });
                 }
         );
 

@@ -104,7 +104,7 @@ public class DirectionalThunderSound {
         float pitch = 0.8f + RANDOM.nextFloat() * 0.4f;
 
         ClientWorld world = client.world;
-        world.playSoundClient(soundX, soundY, soundZ,
+        world.playSound(soundX, soundY, soundZ,
                 SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER,
                 SoundCategory.WEATHER, volume, pitch, false);
     }

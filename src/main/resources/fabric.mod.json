@@ -4,31 +4,38 @@
   "version": "${version}",
   "name": "Localized Weather",
   "description": "Per-zone localized weather with biome-aware rules, smooth transitions, and Minecraft-style storm clouds.",
-  "authors": ["fentbusgaming"],
+  "authors": [
+    "fentbusgaming"
+  ],
   "contact": {},
   "license": "MIT",
-  "icon": "assets/localweather/icon.png",
+  "icon": {
+    "16": "assets/localweather/icon.png"
+  },
   "environment": "*",
   "entrypoints": {
-    "main": ["net.fentbusgaming.localweather.LocalWeatherMod"],
-    "client": ["net.fentbusgaming.localweather.LocalWeatherClient"]
+    "main": [
+      "net.fentbusgaming.localweather.LocalWeatherMod"
+    ],
+    "client": [
+      "net.fentbusgaming.localweather.LocalWeatherClient"
+    ]
   },
   "mixins": [
-    "localweather.mixins.json",
-    {
-      "config": "localweather.client.mixins.json",
-      "environment": "client"
-    }
+    "localweather.mixins.json"
+  ],
+  "clientMixins": [
+    "localweather.client.mixins.json"
   ],
   "depends": {
-    "fabricloader": "*",
-    "fabric-api": "*",
-    "minecraft": ">=1.21.9",
-    "java": ">=21"
+    "fabricloader": ">=0.14.25",
+    "fabric-api": ">=0.83.0",
+    "minecraft": "~1.20.1",
+    "java": ">=17"
   },
   "recommends": {
-    "modmenu": "*",
+    "modmenu": ">=7.0.0",
     "better-clouds": "*",
-    "yet-another-config-lib": "*"
+    "yet-another-config-lib": ">=3.0.0"
   }
 }

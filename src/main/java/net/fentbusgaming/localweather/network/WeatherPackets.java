@@ -1,126 +1,67 @@
 package net.fentbusgaming.localweather.network;
 
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fentbusgaming.localweather.LocalWeatherMod;
 import net.fentbusgaming.localweather.weather.WeatherZone;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 
 /**
- * Handles all network packets for LocalWeather.
+ * Handles all network packet definitions and server-side sending for LocalWeather (1.20.1 Backport).
  *
- * Packet: WeatherUpdatePayload
- *   → Server → Client
- *   → Tells the client what weather type their current zone has and the transition progress.
+ * Packet: WeatherUpdate
+ * → Server → Client
+ * → Tells the client what weather type their current zone has and the transition progress.
  */
 public final class WeatherPackets {
 
+    // 1.20.1 standard constructor mapping for Identifiers
     public static final Identifier WEATHER_UPDATE_ID =
-            Identifier.of(LocalWeatherMod.MOD_ID, "weather_update");
+            new Identifier(LocalWeatherMod.MOD_ID, "weather_update");
 
     public static final Identifier WIND_UPDATE_ID =
-            Identifier.of(LocalWeatherMod.MOD_ID, "wind_update");
+            new Identifier(LocalWeatherMod.MOD_ID, "wind_update");
 
     private WeatherPackets() {}
-
-    // -------------------------------------------------------------------------
-    // Payload
-    // -------------------------------------------------------------------------
-
-    /**
-     * Custom payload sent from server to client with zone weather info.
-     *
-     * Fields:
-     *  - weatherOrdinal: ordinal of WeatherZone.WeatherType (current effective weather)
-     *  - transitionProgress: float 0.0–1.0 (how far into transition we are)
-     *  - zoneX, zoneZ: zone grid coordinates (for debugging / future use)
-     */
-    public record WeatherUpdatePayload(
-            int weatherOrdinal,
-            float transitionProgress,
-            int zoneX,
-            int zoneZ
-    ) implements CustomPayload {
-
-        public static final CustomPayload.Id<WeatherUpdatePayload> ID =
-                new CustomPayload.Id<>(WEATHER_UPDATE_ID);
-
-        public static final PacketCodec<RegistryByteBuf, WeatherUpdatePayload> CODEC =
-                PacketCodec.tuple(
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::weatherOrdinal,
-                        PacketCodecs.FLOAT,   WeatherUpdatePayload::transitionProgress,
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::zoneX,
-                        PacketCodecs.VAR_INT, WeatherUpdatePayload::zoneZ,
-                        WeatherUpdatePayload::new
-                );
-
-        @Override
-        public CustomPayload.Id<? extends CustomPayload> getId() {
-            return ID;
-        }
-    }
-
-    /**
-     * Wind direction payload sent from server to client.
-     */
-    public record WindUpdatePayload(
-            float windDirX,
-            float windDirZ
-    ) implements CustomPayload {
-
-        public static final CustomPayload.Id<WindUpdatePayload> ID =
-                new CustomPayload.Id<>(WIND_UPDATE_ID);
-
-        public static final PacketCodec<RegistryByteBuf, WindUpdatePayload> CODEC =
-                PacketCodec.tuple(
-                        PacketCodecs.FLOAT, WindUpdatePayload::windDirX,
-                        PacketCodecs.FLOAT, WindUpdatePayload::windDirZ,
-                        WindUpdatePayload::new
-                );
-
-        @Override
-        public CustomPayload.Id<? extends CustomPayload> getId() {
-            return ID;
-        }
-    }
 
     // -------------------------------------------------------------------------
     // Registration
     // -------------------------------------------------------------------------
 
+    /**
+     * In 1.20.1 Fabric, S2C (Server-to-Client) channels do not require explicit
+     * registration on the server side. The client simply listens to the raw channel Identifier.
+     */
     public static void registerServerPackets() {
-        PayloadTypeRegistry.playS2C().register(
-                WeatherUpdatePayload.ID,
-                WeatherUpdatePayload.CODEC
-        );
-        PayloadTypeRegistry.playS2C().register(
-                WindUpdatePayload.ID,
-                WindUpdatePayload.CODEC
-        );
-        LocalWeatherMod.LOGGER.info("[LocalWeather] Registered S2C weather packets.");
+        LocalWeatherMod.LOGGER.info("[LocalWeather] Registered S2C weather identifiers.");
     }
 
     // -------------------------------------------------------------------------
-    // Sending
+    // Sending (Server → Client)
     // -------------------------------------------------------------------------
 
     public static void sendWeatherUpdate(ServerPlayerEntity player, WeatherZone zone) {
-        WeatherUpdatePayload payload = new WeatherUpdatePayload(
-                zone.getEffectiveWeather().ordinal(),
-                zone.getTransitionProgress(),
-                zone.getZoneX(),
-                zone.getZoneZ()
-        );
-        ServerPlayNetworking.send(player, payload);
+        // Allocate a fresh 1.20.1 packet byte buffer
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        // Write raw primitives sequentially to match client-side buffer decoding exactly
+        buf.writeVarInt(zone.getEffectiveWeather().ordinal());
+        buf.writeFloat(zone.getTransitionProgress());
+        buf.writeVarInt(zone.getZoneX());
+        buf.writeVarInt(zone.getZoneZ());
+
+        // Send raw packet over the standard network pipeline
+        ServerPlayNetworking.send(player, WEATHER_UPDATE_ID, buf);
     }
 
     public static void sendWindUpdate(ServerPlayerEntity player, double windDirX, double windDirZ) {
-        WindUpdatePayload payload = new WindUpdatePayload((float) windDirX, (float) windDirZ);
-        ServerPlayNetworking.send(player, payload);
+        PacketByteBuf buf = PacketByteBufs.create();
+
+        buf.writeFloat((float) windDirX);
+        buf.writeFloat((float) windDirZ);
+
+        ServerPlayNetworking.send(player, WIND_UPDATE_ID, buf);
     }
 }

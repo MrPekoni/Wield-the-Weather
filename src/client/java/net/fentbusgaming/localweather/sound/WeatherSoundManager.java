@@ -148,7 +148,7 @@ public class WeatherSoundManager {
 
             float pitch = 0.85f + RANDOM.nextFloat() * 0.25f;
 
-            world.playSoundClient(soundX, soundY, soundZ,
+            world.playSound(soundX, soundY, soundZ,
                     SoundEvents.WEATHER_RAIN, SoundCategory.WEATHER,
                     volume, pitch, false);
             soundsPlayed++;
@@ -221,7 +221,7 @@ public class WeatherSoundManager {
         float pitch = 0.5f + RANDOM.nextFloat() * 0.25f;
 
         ClientWorld world = client.world;
-        world.playSoundClient(soundX, soundY, soundZ,
+        world.playSound(soundX, soundY, soundZ,
                 SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER,
                 SoundCategory.WEATHER, volume, pitch, false);
     }
