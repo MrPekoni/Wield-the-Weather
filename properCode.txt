@@ -1,3 +1,4 @@
+
 package net.fentbusgaming.localweather.render;
 
 import java.util.Map;
@@ -11,7 +12,6 @@ import net.fentbusgaming.localweather.weather.WeatherZoneManager;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 
@@ -59,8 +59,6 @@ public class StormCloudRenderer {
         if (zones.isEmpty()) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || context.consumers() == null) return;
-
         Camera camera = client.gameRenderer.getCamera();
         Vec3d cam = camera.getPos();
 
@@ -84,13 +82,14 @@ public class StormCloudRenderer {
         if (!anyVisible) return;
 
         VertexConsumerProvider consumers = context.consumers();
+        if (consumers == null) return;
+
         MatrixStack matrices = context.matrixStack();
         matrices.push();
         Matrix4f mat = matrices.peek().getPositionMatrix();
 
-        // Use the functional unlit Beacon Beam layer with a blank white texture layout
-        RenderLayer targetLayer = RenderLayer.getBeaconBeam(Identifier.of("minecraft", "textures/misc/white.png"), true);
-        VertexConsumer buffer = consumers.getBuffer(targetLayer);
+        // 1.20.1 Render Layer Target (getClouds handles transparency and depths cleanly)
+        VertexConsumer buffer = consumers.getBuffer(RenderLayer.getTranslucent());
 
         for (ClientWeatherHandler.ZoneState s : zones.values()) {
             if (s.weather == WeatherZone.WeatherType.CLEAR || s.transitionProgress < 0.05f) continue;
@@ -170,57 +169,52 @@ public class StormCloudRenderer {
                     boolean drawEast  = cellNoise(worldCellX + 1, worldCellZ, 0) >= coverage;
 
                     // --- Top face (brightest) ---
-                    buffer.vertex(mat, x1, yTop, z1).color(ri, gi, bi, ai).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
-                    buffer.vertex(mat, x1, yTop, z2).color(ri, gi, bi, ai).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
-                    buffer.vertex(mat, x2, yTop, z2).color(ri, gi, bi, ai).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
-                    buffer.vertex(mat, x2, yTop, z1).color(ri, gi, bi, ai).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+                    buffer.vertex(mat, x1, yTop, z1).color(ri, gi, bi, ai).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+                    buffer.vertex(mat, x1, yTop, z2).color(ri, gi, bi, ai).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+                    buffer.vertex(mat, x2, yTop, z2).color(ri, gi, bi, ai).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+                    buffer.vertex(mat, x2, yTop, z1).color(ri, gi, bi, ai).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
 
                     // --- Bottom face (darkest) ---
-                    buffer.vertex(mat, x2, yBot, z1).color(botR, botG, botB, botAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
-                    buffer.vertex(mat, x2, yBot, z2).color(botR, botG, botB, botAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
-                    buffer.vertex(mat, x1, yBot, z2).color(botR, botG, botB, botAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
-                    buffer.vertex(mat, x1, yBot, z1).color(botR, botG, botB, botAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+                    buffer.vertex(mat, x2, yBot, z1).color(botR, botG, botB, botAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+                    buffer.vertex(mat, x2, yBot, z2).color(botR, botG, botB, botAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+                    buffer.vertex(mat, x1, yBot, z2).color(botR, botG, botB, botAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+                    buffer.vertex(mat, x1, yBot, z1).color(botR, botG, botB, botAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
 
                     // --- North face (z1 side) ---
                     if (drawNorth) {
-                        buffer.vertex(mat, x1, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
-                        buffer.vertex(mat, x1, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
-                        buffer.vertex(mat, x2, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
-                        buffer.vertex(mat, x2, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+                        buffer.vertex(mat, x1, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+                        buffer.vertex(mat, x1, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+                        buffer.vertex(mat, x2, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+                        buffer.vertex(mat, x2, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
                     }
 
                     // --- South face (z2 side) ---
                     if (drawSouth) {
-                        buffer.vertex(mat, x2, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
-                        buffer.vertex(mat, x2, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
-                        buffer.vertex(mat, x1, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
-                        buffer.vertex(mat, x1, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+                        buffer.vertex(mat, x2, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+                        buffer.vertex(mat, x2, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+                        buffer.vertex(mat, x1, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+                        buffer.vertex(mat, x1, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
                     }
 
                     // --- West face (x1 side) ---
                     if (drawWest) {
-                        buffer.vertex(mat, x1, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
-                        buffer.vertex(mat, x1, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
-                        buffer.vertex(mat, x1, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
-                        buffer.vertex(mat, x1, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+                        buffer.vertex(mat, x1, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+                        buffer.vertex(mat, x1, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+                        buffer.vertex(mat, x1, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+                        buffer.vertex(mat, x1, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
                     }
 
                     // --- East face (x2 side) ---
                     if (drawEast) {
-                        buffer.vertex(mat, x2, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
-                        buffer.vertex(mat, x2, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
-                        buffer.vertex(mat, x2, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
-                        buffer.vertex(mat, x2, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+                        buffer.vertex(mat, x2, yBot, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+                        buffer.vertex(mat, x2, yTop, z1).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+                        buffer.vertex(mat, x2, yTop, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+                        buffer.vertex(mat, x2, yBot, z2).color(sideR, sideG, sideB, sideAi).texture(0f, 0f).overlay(OverlayTexture.DEFAULT_UV).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
                     }
                 }
             }
         }
 
         matrices.pop();
-
-        // Explicitly force draw target layer immediately to complete rendering calculations cleanly
-        if (consumers instanceof net.minecraft.client.render.VertexConsumerProvider.Immediate immediate) {
-            immediate.draw(targetLayer);
-        }
     }
 }

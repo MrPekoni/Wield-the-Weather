@@ -1,0 +1,131 @@
+
+package net.fentbusgaming.localweather.render;
+
+import java.util.Map;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fentbusgaming.localweather.network.ClientWeatherHandler;
+import net.fentbusgaming.localweather.weather.WeatherZone;
+import net.fentbusgaming.localweather.weather.WeatherZoneManager;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.*;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
+
+/**
+ * Renders blocky, Minecraft-style storm clouds over weather zones (1.20.1 Backport).
+ */
+@Environment(EnvType.CLIENT)
+public class StormCloudRenderer {
+
+    private static final int ZONE_SIZE = WeatherZoneManager.CHUNKS_PER_ZONE * 16;
+
+    private static final int CELL_SIZE = 16;
+    private static final float CLOUD_THICKNESS = 6.0f;
+    private static final float CLOUD_BASE = 191.0f;
+    private static final float MAX_DIST = ZONE_SIZE * 4.5f;
+    private static final float DRIFT_SPEED = 0.4f;
+
+    private static final int CELLS_PER_ZONE = ZONE_SIZE / CELL_SIZE;
+
+    private static final float COVERAGE_RAIN = 0.55f;
+    private static final float COVERAGE_THUNDER = 0.70f;
+    private static final float COVERAGE_SNOW = 0.50f;
+
+    private static final float ALPHA_RAIN = 0.65f;
+    private static final float ALPHA_THUNDER = 0.82f;
+    private static final float ALPHA_SNOW = 0.55f;
+
+    public static void register() {
+        WorldRenderEvents.AFTER_ENTITIES.register(StormCloudRenderer::render);
+    }
+
+    private static int cellHash(int cx, int cz, int layer) {
+        int h = cx * 374761393 + cz * 668265263 + layer * 2147483647;
+        h = (h ^ (h >> 13)) * 1274126177;
+        h = h ^ (h >> 16);
+        return h;
+    }
+
+    private static float cellNoise(int cx, int cz, int layer) {
+        return (cellHash(cx, cz, layer) & 0x7FFFFFFF) / (float) Integer.MAX_VALUE;
+    }
+
+    private static void render(WorldRenderContext context) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || context.consumers() == null) return;
+
+        // Get camera position to translate from absolute world space to camera space
+        Vec3d cam = client.gameRenderer.getCamera().getPos();
+
+        MatrixStack matrices = context.matrixStack();
+        matrices.push();
+        Matrix4f mat = matrices.peek().getPositionMatrix();
+
+        // Use SOLID layer: No transparency calculations, always draws if in line of sight
+
+        var consumers = context.consumers();
+        var cloudLayer = BatchedCloudRenderLayer.getBatchedClouds();
+        //VertexConsumer buffer = context.consumers().getBuffer(RenderLayer.getBeaconBeam(Identifier.of("minecraft", "textures/misc/white.png"), true));
+        VertexConsumer buffer = consumers.getBuffer(RenderLayer.getBeaconBeam(Identifier.of("minecraft", "textures/misc/white.png"),true));
+
+        // Target World Coordinates: (0, 100, 0)
+        // 5x5x5 Cube bounds in absolute coordinates:
+        // X from -2.5 to 2.5, Y from 97.5 to 102.5, Z from -2.5 to 2.5
+        float x1 = (float) (-2.5 - cam.x);
+        float x2 = (float) (2.5 - cam.x);
+        float y1 = (float) (97.5 - cam.y);
+        float y2 = (float) (102.5 - cam.y);
+        float z1 = (float) (-2.5 - cam.z);
+        float z2 = (float) (2.5 - cam.z);
+
+        // Bright Solid Red (R: 255, G: 0, B: 0, Alpha: 255)
+        int r = 255, g = 0, b = 0, a = 100;
+
+        // --- Top face ---
+        buffer.vertex(mat, x1, y2, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+        buffer.vertex(mat, x1, y2, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+        buffer.vertex(mat, x2, y2, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+        buffer.vertex(mat, x2, y2, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 1f, 0f).next();
+
+        // --- Bottom face ---
+        buffer.vertex(mat, x2, y1, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+        buffer.vertex(mat, x2, y1, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+        buffer.vertex(mat, x1, y1, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+        buffer.vertex(mat, x1, y1, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, -1f, 0f).next();
+
+        // --- North face (z1 side) ---
+        buffer.vertex(mat, x1, y1, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+        buffer.vertex(mat, x1, y2, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+        buffer.vertex(mat, x2, y2, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+        buffer.vertex(mat, x2, y1, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, -1f).next();
+
+        // --- South face (z2 side) ---
+        buffer.vertex(mat, x2, y1, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+        buffer.vertex(mat, x2, y2, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+        buffer.vertex(mat, x1, y2, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+        buffer.vertex(mat, x1, y1, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(0f, 0f, 1f).next();
+
+        // --- West face (x1 side) ---
+        buffer.vertex(mat, x1, y1, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+        buffer.vertex(mat, x1, y2, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+        buffer.vertex(mat, x1, y2, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+        buffer.vertex(mat, x1, y1, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(-1f, 0f, 0f).next();
+
+        // --- East face (x2 side) ---
+        buffer.vertex(mat, x2, y1, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+        buffer.vertex(mat, x2, y2, z1).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+        buffer.vertex(mat, x2, y2, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+        buffer.vertex(mat, x2, y1, z2).color(r, g, b, a).texture(0f, 0f).light(LightmapTextureManager.MAX_LIGHT_COORDINATE).normal(1f, 0f, 0f).next();
+
+        matrices.pop();
+        if (consumers instanceof net.minecraft.client.render.VertexConsumerProvider.Immediate immediate) {
+            immediate.draw(cloudLayer);
+        }
+    }
+}
+
