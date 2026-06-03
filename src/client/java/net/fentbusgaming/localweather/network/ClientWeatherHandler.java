@@ -318,7 +318,7 @@ public final class ClientWeatherHandler {
         return Math.floorDiv(a, b);
     }
 
-    static long pack(int x, int z) {
+    public static long pack(int x, int z) {
         return ((long) x << 32) | (z & 0xFFFFFFFFL);
     }
 

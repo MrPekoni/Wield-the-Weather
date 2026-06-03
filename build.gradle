@@ -33,6 +33,11 @@ loom {
             vmArg "-Dsun.io.useCanonCaches=false"
             // Defensive bypass: Stops the headless AWT system from executing broken local host SPI scans
             vmArg "-Djava.awt.headless=true"
+
+            // Allocates 4 Gigabytes of RAM to the game instance
+            vmArg "-Xmx6G"
+
+
         }
     }
     mods {

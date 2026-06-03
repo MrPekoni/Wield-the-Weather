@@ -15,6 +15,8 @@ public class WindState {
     private static double windDirX = 1.0;
     private static double windDirZ = 0.0;
 
+    private static float windSpeed = 1.0f;
+
     /** Wind angle in radians. */
     private static double windAngle = 0.0;
 
@@ -80,5 +82,25 @@ public class WindState {
         int upX = zoneX - (int) Math.round(windDirX);
         int upZ = zoneZ - (int) Math.round(windDirZ);
         return new int[]{upX, upZ};
+    }
+    public static void setWindDirection(double x, double z) {
+        double len = Math.sqrt(x * x + z * z);
+        if (len > 0.001) {
+            windDirX = x / len;
+            windDirZ = z / len;
+            windAngle = Math.atan2(windDirZ, windDirX);
+            targetAngle = windAngle;
+            ticksUntilShift = 6000; // Reset natural shift timer to delay randomized changes
+        }
+    }
+
+    /** Get the current global wind speed multiplier. */
+    public static float getWindSpeed() {
+        return windSpeed;
+    }
+
+    /** Set the global wind speed multiplier. */
+    public static void setWindSpeed(float speed) {
+        windSpeed = speed;
     }
 }

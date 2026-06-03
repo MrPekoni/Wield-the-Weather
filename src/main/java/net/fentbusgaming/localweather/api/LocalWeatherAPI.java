@@ -150,4 +150,69 @@ public final class LocalWeatherAPI {
     public static int getZoneSizeBlocks() {
         return WeatherZoneManager.CHUNKS_PER_ZONE * 16;
     }
+    /**
+     * Set the target weather type at a specific block position.
+     * This will initiate a transition to the new weather type in that zone.
+     *
+     * @param world the server world
+     * @param pos   the block position where the weather should change
+     * @param type  the new weather type to set
+     */
+    /**
+     * Set the weather type at a specific block position by finding its weather zone.
+     *
+     * @param world the server world
+     * @param pos   the block position to change weather at
+     * @param type  the new weather type to set
+     */
+    public static void setWeatherAt(ServerWorld world, BlockPos pos, WeatherZone.WeatherType type) {
+        int zoneX = (pos.getX() >> 4) >> 4; // blockX -> chunkX -> zoneX
+        int zoneZ = (pos.getZ() >> 4) >> 4;
+        setWeatherInZone(world, zoneX, zoneZ, type);
+    }
+
+    /**
+     * Set the weather type for a specific zone using zone coordinates.
+     *
+     * @param world the server world
+     * @param zoneX the zone X coordinate
+     * @param zoneZ the zone Z coordinate
+     * @param type  the new weather type to set
+     */
+    public static void setWeatherInZone(ServerWorld world, int zoneX, int zoneZ, WeatherZone.WeatherType type) {
+        WeatherZone zone = WeatherZoneManager.getOrCreateZone(world, zoneX, zoneZ);
+        if (zone != null) {
+            zone.setTargetWeather(type);
+
+            // Give it a fresh duration if it was previously expired or at 0
+            if (zone.getWeatherDuration() <= 0) {
+                zone.setWeatherDuration(12000); // Default to ~10 minutes
+            }
+
+            // Pack coordinates and mark dirty so WeatherZoneManager syncs it automatically
+            long packed = ((long) zoneX << 32) | (zoneZ & 0xFFFFFFFFL);
+            WeatherZoneManager.markDirty(world.getRegistryKey(), packed);
+        }
+    }
+
+    /**
+     * Set the global wind direction vector and speed multiplier.
+     *
+     * @param dirX  the X direction component
+     * @param dirZ  the Z direction component
+     * @param speed the wind speed multiplier
+     */
+    public static void setGlobalWind(double dirX, double dirZ, float speed) {
+        WindState.setWindDirection(dirX, dirZ);
+        WindState.setWindSpeed(speed);
+    }
+
+    /**
+     * Get the current global wind speed multiplier.
+     *
+     * @return the wind speed multiplier
+     */
+    public static float getWindSpeed() {
+        return WindState.getWindSpeed();
+    }
 }
